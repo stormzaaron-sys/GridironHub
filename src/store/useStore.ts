@@ -84,32 +84,86 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
   login: async (inviteCode: string, username?: string) => {
     const code = inviteCode.toUpperCase().trim();
-    const { data: tokenRow } = await supabase.from('invite_tokens').select('*').eq('token', code).single();
-    if (!tokenRow) { set({ error: 'Invalid invite code' }); return false; }
+    
+    // 1. Validate the Invite Token
+    const { data: tokenRow, error: tokenError } = await supabase
+      .from('invite_tokens')
+      .select('*')
+      .eq('token', code)
+      .single();
 
-    let profile;
-    if (tokenRow.claimed && tokenRow.claimed_by) {
-      const result = await supabase.from('profiles').select('*').eq('id', tokenRow.claimed_by).single();
-      profile = result.data;
-    } else {
-      if (!username || username.trim().length < 2) { set({ error: 'Please choose a username' }); return false; }
-      const result = await supabase.from('profiles').insert({ 
-        username: username.trim(), 
-        token_id: tokenRow.id, 
-        is_admin: tokenRow.is_admin 
-      }).select().single();
-      profile = result.data;
-      await supabase.from('invite_tokens').update({ claimed: true, claimed_by: profile.id }).eq('id', tokenRow.id);
+    if (tokenError || !tokenRow) { 
+      set({ error: 'Invalid invite code' }); 
+      return false; 
     }
 
+    let profile;
+
+    // 2. Check if token is already claimed
+    if (tokenRow.claimed && tokenRow.claimed_by) {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', tokenRow.claimed_by)
+        .single();
+      
+      profile = existingProfile;
+    } 
+    // 3. New User Registration Flow
+    else {
+      // ✅ TRIGGER STEP 2: Return specific error if username is missing
+      if (!username || username.trim().length < 2) { 
+        set({ error: 'Please choose a username (2-20 characters)' }); 
+        return false; 
+      }
+
+      // Create new profile
+      const { data: newProfile, error: profileError } = await supabase
+        .from('profiles')
+        .insert({ 
+          username: username.trim(), 
+          token_id: tokenRow.id, 
+          is_admin: tokenRow.is_admin 
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        set({ error: 'Username taken or system error' });
+        return false;
+      }
+
+      profile = newProfile;
+
+      // Mark token as used
+      await supabase
+        .from('invite_tokens')
+        .update({ claimed: true, claimed_by: profile.id })
+        .eq('id', tokenRow.id);
+    }
+
+    // 4. Handle Session Logic
     const sessionToken = crypto.randomUUID();
-    await supabase.from('sessions').insert({ user_id: profile.id, session_token: sessionToken });
+    await supabase.from('sessions').insert({ 
+      user_id: profile.id, 
+      session_token: sessionToken 
+    });
+    
     localStorage.setItem('nfl_session', sessionToken);
 
     set({
-      currentUser: { id: profile.id, username: profile.username, role: profile.is_admin ? 'admin' : 'user', inviteCode: code, joinDate: profile.created_at, avatarColor: '#f97316', sessionToken },
+      currentUser: { 
+        id: profile.id, 
+        username: profile.username, 
+        role: profile.is_admin ? 'admin' : 'user', 
+        inviteCode: code, 
+        joinDate: profile.created_at, 
+        avatarColor: '#f97316', 
+        sessionToken 
+      },
       isAuthenticated: true,
       dataLoaded: false,
+      error: null
     });
 
     await get().loadData();
@@ -141,7 +195,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
     await get().loadData();
   },
 
-  // ================= DATA (UPDATED FOR ARCHIVE) =================
+  // ================= DATA =================
 
   loadData: async () => {
     const state = get();
@@ -156,7 +210,6 @@ export const useStore = create<NFLHubState>((set, get) => ({
         return;
       }
 
-      // Detect current context (2025 Archive, Super Bowl Week 23)
       const detectedSeasonInfo = detectCurrentSeasonInfo();
       const result = await dataSync.fullSync(season.id, detectedSeasonInfo.week, detectedSeasonInfo.year);
 
@@ -215,7 +268,6 @@ export const useStore = create<NFLHubState>((set, get) => ({
     const state = get();
     if (!state.season || state.isLoading) return;
 
-    // Default to the store's current week/year if not provided
     const targetWeek = reqWeek ?? (state.season.currentWeek ?? state.season.current_week);
     const targetYear = reqYear ?? state.season.year;
 
