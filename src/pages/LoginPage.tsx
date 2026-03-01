@@ -1,6 +1,6 @@
 // src/pages/LoginPage.tsx
 import { useState, useEffect } from 'react';
-import { KeyRound, UserPlus, AlertCircle, ShieldCheck, Users, ChevronRight } from 'lucide-react';
+import { KeyRound, UserPlus, AlertCircle, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 
@@ -11,13 +11,17 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login, error } = useStore();
 
+  // Clear errors when the user starts typing again
   useEffect(() => {
-    useStore.setState({ error: null });
+    if (useStore.getState().error) {
+      useStore.setState({ error: null });
+    }
   }, [inviteCode, username]);
 
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     const code = inviteCode.toUpperCase().trim();
     const success = await login(code);
 
@@ -26,8 +30,9 @@ export function LoginPage() {
       return;
     }
 
+    // ✅ FIX: Case-insensitive check for the "choose a username" trigger
     const currentError = useStore.getState().error;
-    if (currentError === 'Please choose a username (2-20 characters)') {
+    if (currentError && currentError.toLowerCase().includes('choose a username')) {
       setStep('username');
       useStore.setState({ error: null });
     }
@@ -36,9 +41,11 @@ export function LoginPage() {
 
   const handleUsernameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim()) return;
+    
     setIsLoading(true);
     const code = inviteCode.toUpperCase().trim();
-    const success = await login(code, username.trim());
+    await login(code, username.trim());
     setIsLoading(false);
   };
 
@@ -47,8 +54,6 @@ export function LoginPage() {
     setUsername('');
     useStore.setState({ error: null });
   };
-
-  const isAdminCode = inviteCode.toUpperCase().trim() === 'GRIDIRON01';
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] flex flex-col items-center justify-center p-4 font-display">
@@ -67,7 +72,7 @@ export function LoginPage() {
         </div>
 
         {/* --- MAIN LOGIN PANEL --- */}
-        <div className="bg-white border-t-4 border-[#111111] shadow-2xl overflow-hidden">
+        <div className="bg-white border-t-4 border-[#111111] shadow-2xl overflow-hidden transition-all duration-300">
           
           {/* Panel Header */}
           <div className="bg-[#111111] py-2 px-6 flex justify-between items-center">
@@ -75,14 +80,14 @@ export function LoginPage() {
               {step === 'code' ? 'Identity Verification' : 'Finalize Profile'}
             </h2>
             <div className="flex gap-1">
-              <div className={cn("w-2 h-2 rounded-full", step === 'code' ? "bg-[#CC0000]" : "bg-gray-600")} />
-              <div className={cn("w-2 h-2 rounded-full", step === 'username' ? "bg-[#CC0000]" : "bg-gray-600")} />
+              <div className={cn("w-2 h-2 rounded-full transition-colors", step === 'code' ? "bg-[#CC0000]" : "bg-gray-600")} />
+              <div className={cn("w-2 h-2 rounded-full transition-colors", step === 'username' ? "bg-[#CC0000]" : "bg-gray-600")} />
             </div>
           </div>
 
           <div className="p-8">
             {step === 'code' ? (
-              <form onSubmit={handleCodeSubmit} className="space-y-6">
+              <form onSubmit={handleCodeSubmit} className="space-y-6 animate-in fade-in duration-500">
                 <div>
                   <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
                     Invite Passcode
@@ -113,7 +118,7 @@ export function LoginPage() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleUsernameSubmit} className="space-y-6">
+              <form onSubmit={handleUsernameSubmit} className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                 <div className="bg-green-50 border border-green-100 p-3 flex items-center gap-3">
                   <ShieldCheck className="text-green-600" size={20} />
                   <span className="text-[10px] font-black text-green-700 uppercase tracking-tight">Code Authenticated</span>
