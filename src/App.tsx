@@ -1,4 +1,4 @@
-// NFL Hub - Main Application
+// GridironHub - Main Application
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store/useStore';
@@ -24,7 +24,6 @@ function ScrollToTop() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  // ✅ Use selector to only subscribe to what you need
   const isAuthenticated = useStore(state => state.isAuthenticated);
 
   if (!isAuthenticated) {
@@ -35,76 +34,78 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  // ✅ Use selectors instead of destructuring everything
   const isAuthenticated = useStore(state => state.isAuthenticated);
   const authChecked = useStore(state => state.authChecked);
   const dataLoaded = useStore(state => state.dataLoaded);
   
-  // ✅ Get functions separately (these are stable references in Zustand)
   const restoreSession = useStore(state => state.restoreSession);
   const loadData = useStore(state => state.loadData);
   const refreshGames = useStore(state => state.refreshGames);
 
-  // ✅ Track if we've already initialized
   const hasRestoredSession = useRef(false);
   const hasLoadedInitialData = useRef(false);
 
-  // ✅ Restore session ONCE on mount
+  // ✅ FIX 1: FORCE THE TAB TITLE 
+  // This runs immediately when the app loads to overwrite "NFL Hub"
+  useEffect(() => {
+    document.title = "GridironHub | 2026 Season";
+  }, []);
+
+  // Restore session ONCE on mount
   useEffect(() => {
     if (!hasRestoredSession.current) {
       hasRestoredSession.current = true;
       restoreSession();
     }
-  }, []); // Empty deps - only run once!
+  }, [restoreSession]);
 
-  // ✅ Load data ONCE when authenticated (not on every render)
+  // Load data ONCE when authenticated
   useEffect(() => {
     if (isAuthenticated && !hasLoadedInitialData.current && !dataLoaded) {
       hasLoadedInitialData.current = true;
       loadData();
     }
-  }, [isAuthenticated, dataLoaded]); // Don't include loadData in deps!
+  }, [isAuthenticated, dataLoaded, loadData]);
 
-  // ✅ Separate effect for polling (only refreshGames, not full loadData)
+  // Polling for game updates
   useEffect(() => {
     if (!isAuthenticated || !dataLoaded) return;
 
-    // Poll every 30 seconds for game updates only (not full reload)
     const interval = setInterval(() => {
-      refreshGames(false); // Don't force refresh, use cache if fresh
+      refreshGames(false);
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, dataLoaded]); // Don't include refreshGames in deps!
+  }, [isAuthenticated, dataLoaded, refreshGames]);
 
-  // ✅ Reset refs on logout
+  // Reset refs on logout
   useEffect(() => {
     if (!isAuthenticated) {
       hasLoadedInitialData.current = false;
     }
   }, [isAuthenticated]);
 
-  // Loading state
   if (!authChecked) {
     return (
       <div 
         style={{ 
-          background: '#0f172a', 
+          background: '#111111', 
           height: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'white'
+          color: 'white',
+          fontFamily: 'Oswald, sans-serif'
         }}
       >
-        <div>Loading...</div>
+        <div>LOADING GRIDIRONHUB...</div>
       </div>
     );
   }
 
   return (
     <>
-      <ScrollToTop /> {/* 👈 Added here - inside Router context but outside Routes */}
+      <ScrollToTop />
       <Routes>
         <Route
           path="/login"
@@ -112,59 +113,31 @@ function AppRoutes() {
         />
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><HomePage /></ProtectedRoute>}
         />
         <Route
           path="/picks"
-          element={
-            <ProtectedRoute>
-              <PicksPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><PicksPage /></ProtectedRoute>}
         />
         <Route
           path="/leaderboard"
-          element={
-            <ProtectedRoute>
-              <LeaderboardPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>}
         />
         <Route
           path="/playoffs"
-          element={
-            <ProtectedRoute>
-              <PlayoffsPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><PlayoffsPage /></ProtectedRoute>}
         />
         <Route
           path="/news"
-          element={
-            <ProtectedRoute>
-              <NewsPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><NewsPage /></ProtectedRoute>}
         />
         <Route
           path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
         />
         <Route
           path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><AdminPage /></ProtectedRoute>}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
