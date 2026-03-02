@@ -1,3 +1,4 @@
+// src/store/useStore.ts
 import { create } from 'zustand';
 import {
   User,
@@ -40,6 +41,7 @@ interface NFLHubState {
   login: (inviteCode: string, username?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => void;
 
   // Data Actions
   loadData: () => Promise<void>;
@@ -86,7 +88,6 @@ export const useStore = create<NFLHubState>((set, get) => ({
     const code = inviteCode.toUpperCase().trim();
     set({ error: null });
     
-    // 1. Validate the Invite Token
     const { data: tokenRow, error: tokenError } = await supabase
       .from('invite_tokens')
       .select('*')
@@ -100,9 +101,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
     let profile;
 
-    // 2 & 3. Handle Claimed Tokens vs. New Registrations
     if (tokenRow.claimed && tokenRow.claimed_by) {
-      // --- MULTI-DEVICE LOGIN FLOW ---
       if (!username || username.trim().length < 2) {
         set({ error: 'This code is already claimed. Enter your username to link this device.' });
         return false;
@@ -122,13 +121,11 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
       profile = existingProfile;
     } else {
-      // --- NEW USER REGISTRATION FLOW ---
       if (!username || username.trim().length < 2) { 
         set({ error: 'Please choose a username (2-20 characters)' }); 
         return false; 
       }
 
-      // Check if username is taken
       const { data: nameCheck } = await supabase
         .from('profiles')
         .select('id')
@@ -140,13 +137,13 @@ export const useStore = create<NFLHubState>((set, get) => ({
         return false;
       }
 
-      // Create new profile
       const { data: newProfile, error: profileError } = await supabase
         .from('profiles')
         .insert({ 
           username: username.trim(), 
           token_id: tokenRow.id, 
-          is_admin: tokenRow.is_admin 
+          is_admin: tokenRow.is_admin,
+          favorite_team: 'NFL' 
         })
         .select()
         .single();
@@ -158,14 +155,12 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
       profile = newProfile;
 
-      // Mark token as used
       await supabase
         .from('invite_tokens')
         .update({ claimed: true, claimed_by: profile.id })
         .eq('id', tokenRow.id);
     }
 
-    // 4. Handle Session Logic
     const sessionToken = crypto.randomUUID();
     await supabase.from('sessions').insert({ 
       user_id: profile.id, 
@@ -182,7 +177,8 @@ export const useStore = create<NFLHubState>((set, get) => ({
         inviteCode: code, 
         joinDate: profile.created_at, 
         avatarColor: '#f97316', 
-        sessionToken 
+        sessionToken,
+        favoriteTeam: profile.favorite_team || 'NFL'
       },
       isAuthenticated: true,
       dataLoaded: false,
@@ -211,11 +207,27 @@ export const useStore = create<NFLHubState>((set, get) => ({
     if (!profile) { localStorage.removeItem('nfl_session'); set({ authChecked: true }); return; }
 
     set({
-      currentUser: { id: profile.id, username: profile.username, role: profile.is_admin ? 'admin' : 'user', inviteCode: '', joinDate: profile.created_at, avatarColor: '#f97316', sessionToken: token },
+      currentUser: { 
+        id: profile.id, 
+        username: profile.username, 
+        role: profile.is_admin ? 'admin' : 'user', 
+        inviteCode: '', 
+        joinDate: profile.created_at, 
+        avatarColor: '#f97316', 
+        sessionToken: token,
+        favoriteTeam: profile.favorite_team || 'NFL'
+      },
       isAuthenticated: true,
       authChecked: true,
     });
     await get().loadData();
+  },
+
+  updateProfile: (updates) => {
+    set((state) => ({
+      currentUser: state.currentUser ? { ...state.currentUser, ...updates } : null
+    }));
+    get().recalculateLeaderboard();
   },
 
   // ================= DATA =================
@@ -390,7 +402,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
   recalculateLeaderboard: async () => {
     const { data: picks } = await supabase.from('picks').select('user_id, points_awarded, is_lock');
-    const { data: profiles } = await supabase.from('profiles').select('id, username');
+    const { data: profiles } = await supabase.from('profiles').select('id, username, favorite_team, avatar_color');
     const stats: Record<string, { pts: number; locks: number; correctLocks: number }> = {};
     
     picks?.forEach(p => {
@@ -407,10 +419,14 @@ export const useStore = create<NFLHubState>((set, get) => ({
       return { 
         userId: profile.id, 
         username: profile.username, 
+        avatarColor: profile.avatar_color || '#f97316',
         totalPoints: s.pts, 
+        weeklyPoints: 0,
         rank: 0, 
         lockPercentage: s.locks > 0 ? Math.round((s.correctLocks / s.locks) * 100) : 0, 
-        streak: 0 
+        streak: 0,
+        favoriteTeam: profile.favorite_team || 'NFL',
+        upsets: 0
       };
     });
 

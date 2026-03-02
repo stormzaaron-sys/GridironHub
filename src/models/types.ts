@@ -1,3 +1,4 @@
+// src/models/types.ts
 // Core Data Models for NFL Hub
 
 export interface User {
@@ -8,6 +9,7 @@ export interface User {
   joinDate: string;
   avatarColor: string;
   sessionToken?: string;
+  favoriteTeam?: string; // ✅ Added for team helmet support
 }
 
 export interface Season {
@@ -18,6 +20,7 @@ export interface Season {
   isActive: boolean;
   currentWeek: number;
   isPlayoffs: boolean;
+  current_week?: number; // Support for snake_case from DB
 }
 
 export interface Game {
@@ -52,6 +55,7 @@ export interface Pick {
   userId: string;
   gameId: string;
   pickedTeam: string;
+  selectedTeam?: string; // Support for store mapping
   isLock: boolean;
   pointsAwarded: number;
   evaluated: boolean;
@@ -64,7 +68,7 @@ export interface LeaderboardEntry {
   userId: string;
   username: string;
   avatarColor: string;
-  seasonId: string;
+  seasonId?: string;
   totalPoints: number;
   weeklyPoints: number;
   rank: number;
@@ -72,9 +76,10 @@ export interface LeaderboardEntry {
   streak: number;
   lockPercentage: number;
   upsets: number;
-  gamesPlayed: number;
-  correctPicks: number;
-  weeklyHistory: number[];
+  gamesPlayed?: number;
+  correctPicks?: number;
+  weeklyHistory?: number[];
+  favoriteTeam?: string; // ✅ Added for helmet display in Standings
 }
 
 export interface LeaderboardSnapshot {
