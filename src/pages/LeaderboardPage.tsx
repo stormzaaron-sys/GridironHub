@@ -9,7 +9,7 @@ import { cn } from '../utils/cn';
 type SortBy = 'total' | 'weekly' | 'streak' | 'locks' | 'upsets';
 
 export function LeaderboardPage() {
-  const { currentUser, season, leaderboard } = useStore();
+  const { currentUser, season, leaderboard, isLoading } = useStore();
   const [sortBy, setSortBy] = useState<SortBy>('total');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -26,6 +26,10 @@ export function LeaderboardPage() {
         case 'upsets':
           return (b.upsets || 0) - (a.upsets || 0);
         default:
+          // If total points are equal, sort alphabetically so the roster is stable
+          if ((b.totalPoints || 0) === (a.totalPoints || 0)) {
+            return a.username.localeCompare(b.username);
+          }
           return (b.totalPoints || 0) - (a.totalPoints || 0);
       }
     });
@@ -117,20 +121,20 @@ export function LeaderboardPage() {
         ))}
       </div>
 
-      {/* ✅ Sticky Rank Sticker with Team Helmet */}
-      {userEntry && (
+      {/* ✅ Sticky Rank Sticker - Only show if user is in the leaderboard and data isn't loading */}
+      {userEntry && !isLoading && (
         <div className="bg-[#111111] text-white rounded-xl p-4 flex items-center justify-between shadow-xl border-l-4 border-[#CC0000] sticky top-4 z-20 transform translate-z-0">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center border border-white/20">
                 <img 
-                  src={getTeamLogo(userEntry.favoriteTeam)} 
+                  src={getTeamLogo(userEntry.favoriteTeam || 'NFL')} 
                   className="w-10 h-10 object-contain" 
                   alt="My Team" 
                 />
               </div>
               <div className="absolute -bottom-1 -right-1 bg-[#CC0000] text-[10px] font-black px-1.5 rounded-full border-2 border-[#111111]">
-                #{userEntry.rank}
+                #{userEntry.rank || leaderboard.indexOf(userEntry) + 1}
               </div>
             </div>
             <div>
@@ -139,7 +143,7 @@ export function LeaderboardPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-black text-white italic leading-none">{userEntry.totalPoints}</p>
+            <p className="text-2xl font-black text-white italic leading-none">{userEntry.totalPoints || 0}</p>
             <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">TOTAL PTS</p>
           </div>
         </div>
@@ -148,7 +152,7 @@ export function LeaderboardPage() {
       {/* Leaderboard List */}
       <div className="space-y-1 mt-4">
         {sortedLeaderboard.map((entry, index) => {
-          const isFirst = index === 0 && sortBy === 'total';
+          const isFirst = index === 0 && sortBy === 'total' && entry.totalPoints > 0;
           return (
             <div key={entry.userId} className="relative group">
               {isFirst && (
@@ -166,12 +170,13 @@ export function LeaderboardPage() {
           );
         })}
 
-        {leaderboard.length === 0 && (
+        {/* Empty State - Only show if literally NO profiles exist */}
+        {leaderboard.length === 0 && !isLoading && (
           <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
             <Trophy size={48} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 uppercase">The Season Hasn't Started</h3>
+            <h3 className="text-lg font-bold text-gray-900 uppercase">Roster is Empty</h3>
             <p className="text-gray-500 max-w-xs mx-auto mt-2 text-sm font-medium">
-              Once games go final, the leaderboard will update automatically.
+              Waiting for players to join the league! Once profiles are created, they will appear here.
             </p>
           </div>
         )}

@@ -403,19 +403,27 @@ export const useStore = create<NFLHubState>((set, get) => ({
   recalculateLeaderboard: async () => {
     const { data: picks } = await supabase.from('picks').select('user_id, points_awarded, is_lock');
     const { data: profiles } = await supabase.from('profiles').select('id, username, favorite_team, avatar_color');
+    
+    // Initialize stats for EVERY profile found in the DB (Roster logic)
     const stats: Record<string, { pts: number; locks: number; correctLocks: number }> = {};
     
+    profiles?.forEach(profile => {
+      stats[profile.id] = { pts: 0, locks: 0, correctLocks: 0 };
+    });
+
+    // Add points for users who have actual picks recorded
     picks?.forEach(p => {
-      if (!stats[p.user_id]) stats[p.user_id] = { pts: 0, locks: 0, correctLocks: 0 };
-      stats[p.user_id].pts += (p.points_awarded || 0);
-      if (p.is_lock) {
-        stats[p.user_id].locks++;
-        if (p.points_awarded > 1) stats[p.user_id].correctLocks++;
+      if (stats[p.user_id]) {
+        stats[p.user_id].pts += (p.points_awarded || 0);
+        if (p.is_lock) {
+          stats[p.user_id].locks++;
+          if (p.points_awarded > 1) stats[p.user_id].correctLocks++;
+        }
       }
     });
 
     const leaderboard: LeaderboardEntry[] = (profiles || []).map(profile => {
-      const s = stats[profile.id] || { pts: 0, locks: 0, correctLocks: 0 };
+      const s = stats[profile.id];
       return { 
         userId: profile.id, 
         username: profile.username, 
@@ -430,7 +438,13 @@ export const useStore = create<NFLHubState>((set, get) => ({
       };
     });
 
-    leaderboard.sort((a, b) => b.totalPoints - a.totalPoints).forEach((e, i) => e.rank = i + 1);
+    // Sort by points, then alphabetically as tie-breaker
+    leaderboard.sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        return a.username.localeCompare(b.username);
+    });
+    
+    leaderboard.forEach((e, i) => e.rank = i + 1);
     set({ leaderboard });
   },
 
