@@ -1,4 +1,3 @@
-// src/components/LeaderboardRow.tsx
 import { TrendingUp, TrendingDown, Flame, Trophy, Lock } from 'lucide-react';
 import { LeaderboardEntry } from '../models/types';
 import { cn } from '../utils/cn';
@@ -53,18 +52,18 @@ export function LeaderboardRow({ entry, isCurrentUser, showTrend = true, rank: d
         />
       </div>
 
-      {/* User Info */}
-      <div className="flex-1 min-w-0 ml-1">
-        <div className="flex items-center gap-2">
+      {/* User Info - Flex-1 allows this section to grow, overflow-hidden prevents blowout */}
+      <div className="flex-1 min-w-0 ml-1 overflow-hidden">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <p className={cn(
-            'font-bold truncate text-base tracking-tight uppercase italic font-display',
+            'font-bold text-base tracking-tight uppercase italic font-display whitespace-nowrap',
             isCurrentUser ? '!text-[#CC0000]' : '!text-[#111111]'
           )}>
             {entry.username}
           </p>
           
           {streak >= 3 && (
-            <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-md text-[10px] font-black uppercase tracking-tighter animate-pulse">
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-md text-[10px] font-black uppercase tracking-tighter animate-pulse shrink-0">
               <Flame size={12} className="fill-orange-500 stroke-orange-600" />
               {streak} STREAK
             </div>
@@ -82,7 +81,7 @@ export function LeaderboardRow({ entry, isCurrentUser, showTrend = true, rank: d
       {/* Trend Indicator */}
       {showTrend && rankChange !== 0 && (
         <div className={cn(
-          'flex items-center gap-0.5 text-[10px] font-black px-2 py-1 rounded-lg shrink-0', 
+          'flex items-center gap-0.5 text-[10px] font-black px-2 py-1 rounded-lg shrink-0 hidden xs:flex', 
           rankChange > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'
         )}>
           {rankChange > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -91,8 +90,8 @@ export function LeaderboardRow({ entry, isCurrentUser, showTrend = true, rank: d
       )}
 
       {/* Points Display */}
-      <div className="text-right min-w-[70px] border-l border-gray-100 pl-4 shrink-0">
-        <p className="font-display font-black text-2xl !text-[#111111] leading-none italic group-hover:scale-110 transition-transform duration-300">
+      <div className="text-right min-w-[65px] sm:min-w-[75px] border-l border-gray-100 pl-4 shrink-0">
+        <p className="font-display font-black text-xl sm:text-2xl !text-[#111111] leading-none italic group-hover:scale-110 transition-transform duration-300">
           {entry.totalPoints ?? 0}
         </p>
         <p className="text-[10px] !text-[#9CA3AF] font-black uppercase tracking-widest mt-1">PTS</p>
