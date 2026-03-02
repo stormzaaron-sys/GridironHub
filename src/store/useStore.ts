@@ -176,7 +176,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
         role: profile.is_admin ? 'admin' : 'user', 
         inviteCode: code, 
         joinDate: profile.created_at, 
-        avatarColor: '#f97316', 
+        avatarColor: '#f97316', // Default orange since column doesn't exist 
         sessionToken,
         favoriteTeam: profile.favorite_team || 'NFL'
       },
@@ -402,7 +402,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
   recalculateLeaderboard: async () => {
     const { data: picks } = await supabase.from('picks').select('user_id, points_awarded, is_lock');
-    const { data: profiles } = await supabase.from('profiles').select('id, username, favorite_team, avatar_color');
+    const { data: profiles } = await supabase.from('profiles').select('id, username, favorite_team');
     
     // Initialize stats for EVERY profile found in the DB (Roster logic)
     const stats: Record<string, { pts: number; locks: number; correctLocks: number }> = {};
