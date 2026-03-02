@@ -176,7 +176,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
         role: profile.is_admin ? 'admin' : 'user', 
         inviteCode: code, 
         joinDate: profile.created_at, 
-        avatarColor: '#f97316', // Default orange since column doesn't exist 
+        avatarColor: '#f97316', 
         sessionToken,
         favoriteTeam: profile.favorite_team || 'NFL'
       },
@@ -401,6 +401,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
   },
 
   recalculateLeaderboard: async () => {
+    // ✅ ONLY SELECT COLUMNS THAT EXIST: Removing avatar_color to prevent 400 error
     const { data: picks } = await supabase.from('picks').select('user_id, points_awarded, is_lock');
     const { data: profiles } = await supabase.from('profiles').select('id, username, favorite_team');
     
@@ -427,7 +428,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
       return { 
         userId: profile.id, 
         username: profile.username, 
-        avatarColor: profile.avatar_color || '#f97316',
+        avatarColor: '#f97316', // ✅ Hardcoded default to fix DB mismatch
         totalPoints: s.pts, 
         weeklyPoints: 0,
         rank: 0, 
