@@ -23,6 +23,7 @@ export function LoginPage() {
     setIsLoading(true);
     
     const code = inviteCode.toUpperCase().trim();
+    // Try login with just the code
     const success = await login(code);
 
     if (success) {
@@ -30,12 +31,16 @@ export function LoginPage() {
       return;
     }
 
-    // ✅ FIX: Case-insensitive check for the "choose a username" trigger
+    // ✅ FULL FIX: Catch both New User and Existing User multi-device scenarios
     const currentError = useStore.getState().error;
-    if (currentError && currentError.toLowerCase().includes('choose a username')) {
-      setStep('username');
-      useStore.setState({ error: null });
+    if (currentError) {
+      const lowerError = currentError.toLowerCase();
+      if (lowerError.includes('choose a username') || lowerError.includes('already claimed')) {
+        setStep('username');
+        useStore.setState({ error: null }); // Clear error so the user can see the username field clearly
+      }
     }
+    
     setIsLoading(false);
   };
 
@@ -45,6 +50,7 @@ export function LoginPage() {
     
     setIsLoading(true);
     const code = inviteCode.toUpperCase().trim();
+    // Pass BOTH code and username now
     await login(code, username.trim());
     setIsLoading(false);
   };
@@ -152,7 +158,7 @@ export function LoginPage() {
                     disabled={isLoading || username.trim().length < 2}
                     className="w-full py-4 bg-[#CC0000] text-white font-black uppercase italic tracking-tighter flex items-center justify-center shadow-lg shadow-red-500/20 transition-all disabled:opacity-50"
                   >
-                    {isLoading ? 'Creating Account...' : 'Join Official League'}
+                    {isLoading ? 'Authenticating...' : 'Enter Hub'}
                   </button>
                   <button
                     type="button"

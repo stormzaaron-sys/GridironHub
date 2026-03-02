@@ -84,6 +84,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
   login: async (inviteCode: string, username?: string) => {
     const code = inviteCode.toUpperCase().trim();
+    set({ error: null });
     
     // 1. Validate the Invite Token
     const { data: tokenRow, error: tokenError } = await supabase
@@ -99,22 +100,44 @@ export const useStore = create<NFLHubState>((set, get) => ({
 
     let profile;
 
-    // 2. Check if token is already claimed
+    // 2 & 3. Handle Claimed Tokens vs. New Registrations
     if (tokenRow.claimed && tokenRow.claimed_by) {
-      const { data: existingProfile } = await supabase
+      // --- MULTI-DEVICE LOGIN FLOW ---
+      if (!username || username.trim().length < 2) {
+        set({ error: 'This code is already claimed. Enter your username to link this device.' });
+        return false;
+      }
+
+      const { data: existingProfile, error: matchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', tokenRow.claimed_by)
+        .eq('username', username.trim())
         .single();
-      
+
+      if (matchError || !existingProfile) {
+        set({ error: 'Incorrect username for this invite code.' });
+        return false;
+      }
+
       profile = existingProfile;
-    } 
-    // 3. New User Registration Flow
-    else {
-      // ✅ TRIGGER STEP 2: Return specific error if username is missing
+    } else {
+      // --- NEW USER REGISTRATION FLOW ---
       if (!username || username.trim().length < 2) { 
         set({ error: 'Please choose a username (2-20 characters)' }); 
         return false; 
+      }
+
+      // Check if username is taken
+      const { data: nameCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username.trim())
+        .single();
+
+      if (nameCheck) {
+        set({ error: 'That username is already taken. Try another!' });
+        return false;
       }
 
       // Create new profile
@@ -129,7 +152,7 @@ export const useStore = create<NFLHubState>((set, get) => ({
         .single();
 
       if (profileError) {
-        set({ error: 'Username taken or system error' });
+        set({ error: 'System error creating profile' });
         return false;
       }
 
